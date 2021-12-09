@@ -1,4 +1,5 @@
 #include "tagslineeditwidget.h"
+#include <QDebug>
 
 TagsLineEditWidget::TagsLineEditWidget(QWidget* parent)
     : QWidget(parent)
@@ -60,7 +61,7 @@ void TagsLineEditWidget::paintEvent(QPaintEvent*)
 
     const QRect &editedTagRect = m_tagsPresenter->GetCurrentEdittedTagRect();
     const QPoint &editedTextPoint = editedTagRect.topLeft() + QPoint(tag_inner_left_padding,
-                                                                  ((editedTagRect.height()/2 - fontMetrics().height()) / 2));
+                                                                  ( top_text_margin +tag_inner_top_padding));
 
     // scroll
     m_tagsPresenter->CalculateVecticalScroll(editedTagRect);
@@ -69,12 +70,12 @@ void TagsLineEditWidget::paintEvent(QPaintEvent*)
     m_tagsPresenter->DrawTags(painter, 0, m_tagsPresenter->currentEditIndex, 0, 0);
 
     // draw edited text
-    auto const formatting = m_tagsPresenter->formatting();
-    m_tagsPresenter->m_textLayout->draw(&painter, editedTextPoint - QPoint(0, m_tagsPresenter->m_vecticalScrollValue-top_text_margin-top_text_margin-bottom_text_margin-tag_inner_bottom_padding), formatting);
+    const QVector<QTextLayout::FormatRange>  textLayoutVector = m_tagsPresenter->EditetTextFormating();
+    m_tagsPresenter->m_textLayout->draw(&painter, editedTextPoint - QPoint(0, m_tagsPresenter->m_vecticalScrollValue), textLayoutVector);
     // draw cursor
     if (m_tagsPresenter->m_cursorBlinkStatus)
     {
-        m_tagsPresenter->m_textLayout->drawCursor(&painter, editedTextPoint - QPointF( 0, m_tagsPresenter->m_vecticalScrollValue-top_text_margin-top_text_margin-bottom_text_margin-tag_inner_bottom_padding), m_tagsPresenter->m_cursorPosition);
+        m_tagsPresenter->m_textLayout->drawCursor(&painter, editedTextPoint - QPointF( 0, m_tagsPresenter->m_vecticalScrollValue), m_tagsPresenter->m_cursorPosition);
     }
     //end
     m_tagsPresenter->DrawTags(painter, m_tagsPresenter->currentEditIndex+1, m_tagsPresenter->tags.count(), 0, 0);
@@ -205,16 +206,6 @@ void TagsLineEditWidget::keyPressEvent(QKeyEvent* event)
                     {
                         m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->nextCursorPosition(m_tagsPresenter->m_cursorPosition), 0, false);
                     }
-                    event->accept();
-                    break;
-                }
-                case Qt::Key_Up:
-                {
-                    event->accept();
-                    break;
-                }
-                case Qt::Key_Down:
-                {
                     event->accept();
                     break;
                 }
@@ -349,27 +340,17 @@ void TagsLineEditWidget::RepaintWidget()
 
 void TagsLineEditWidget::wheelEvent(QWheelEvent *event)
 {
-    int numDegrees = event->delta();
+
+    int numDegrees = event->angleDelta().y();
+    qDebug()<< "numDegrees" << numDegrees;
     if(numDegrees>0)
     {
-        if (m_tagsPresenter->m_cursorPosition == 0)
-        {
-            m_tagsPresenter->EditPreviousTag();
-        }
-        else
-        {
-            m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->previousCursorPosition(m_tagsPresenter->m_cursorPosition), 0, true);
-        }
+        const int allTagsHeight = m_tagsPresenter->GetAllTagsHeight();
+        m_tagsPresenter->m_vecticalScrollValue=qMin(allTagsHeight, m_tagsPresenter->m_vecticalScrollValue+=20);
     }
     else
     {
-        if (m_tagsPresenter->m_cursorPosition == m_tagsPresenter->GetCurrentEdittedTagText().size())
-        {
-            m_tagsPresenter->EditNextTag();
-        }
-        else
-        {
-            m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->nextCursorPosition(m_tagsPresenter->m_cursorPosition), 0, true);
-        }
+        m_tagsPresenter->m_vecticalScrollValue=qMax(0, m_tagsPresenter->m_vecticalScrollValue-=20);
     }
+    RepaintWidget();
 }

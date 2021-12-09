@@ -1,5 +1,5 @@
 #include "tagsmemento.h"
-
+#include <QtDebug>
 
 TagsPresenter::TagsPresenter(QWidget *view)
     : QObject(view)
@@ -141,19 +141,15 @@ void TagsPresenter::CalculateTagOnEdit(QPoint &leftTopPoint, const QRect &widget
 {
     const int fontMetricsHeight= m_guiWidget->fontMetrics().height();//высота шрифта
     const int editedTagHeight=tag_inner_top_padding+ fontMetricsHeight + tag_inner_bottom_padding;
-    const int fontMetricsWidth=FONT_METRICS_WIDTH(m_guiWidget->fontMetrics(), m_textLayout->text());
-    const int editedTagWidth = fontMetricsWidth +tag_inner_left_padding + tag_inner_right_padding;
-    if (leftTopPoint.x() + editedTagWidth+tag_inner_right_padding < widgetSizes.width())
-    {
-        SetCurrentEdittedTagRect(QRect(leftTopPoint, QSize(editedTagWidth, editedTagHeight)));
-    }
-    else
+    const int textMetricsWidth=FONT_METRICS_WIDTH(m_guiWidget->fontMetrics(), m_textLayout->text());
+    const int editedTagWidth = textMetricsWidth +tag_inner_left_padding + 2*tag_inner_right_padding+ tag_cross_spacing + tag_cross_width;
+    if (leftTopPoint.x()+editedTagWidth>widgetSizes.width())
     {
         leftTopPoint.setX(0);
-        leftTopPoint.setY(leftTopPoint.y()+2*tag_inner_bottom_padding+fontMetricsHeight+tag_inner_top_padding);
-        SetCurrentEdittedTagRect(QRect(leftTopPoint+QPoint(0, tag_inner_bottom_padding), QSize(editedTagWidth, editedTagHeight)));
+        leftTopPoint.setY(leftTopPoint.y()+tag_inner_bottom_padding+fontMetricsHeight);
     }
-    leftTopPoint += QPoint(editedTagWidth + tag_horisontal_spacing, 0);
+    SetCurrentEdittedTagRect(QRect(leftTopPoint, QSize(editedTagWidth, editedTagHeight)));
+    leftTopPoint.setX(leftTopPoint.x()+editedTagWidth + tag_horisontal_spacing);
 }
 
 void TagsPresenter::SetCursorVisible(bool visible)
@@ -266,7 +262,7 @@ void TagsPresenter::EditNewTag()
     MoveCursor(0, 0, false);
 }
 
-QVector<QTextLayout::FormatRange> TagsPresenter::formatting() const
+QVector<QTextLayout::FormatRange> TagsPresenter::EditetTextFormating() const
 {
     if (select_size == 0)
     {
@@ -353,16 +349,16 @@ int TagsPresenter::GetAllTagsHeight() const
     return tags.back().rect.bottom() - tags.front().rect.top();
 }
 
-qreal TagsPresenter::cursorToY()
-{
-    return m_textLayout->lineAt(0).cursorToX(m_cursorPosition);
-}
+
 
 void TagsPresenter::CalculateVecticalScroll(const QRect &editedTagRect)
 {
     const QRect widgetRect = GetInputWidgetRect();
     const int allTagsHeight = GetAllTagsHeight();
-    int const cursorYPosition = editedTagRect.y()+bottom_text_margin+tag_inner_bottom_padding+top_text_margin+tag_inner_top_padding/* + qRound(cursorToY())*/;// поменять метод
+    int const cursorYPosition = editedTagRect.y();
+
+    qDebug()<< "cursorYPosition" << cursorYPosition<< "width" << widgetRect.width()<< "m_vecticalScrollValue before" << m_vecticalScrollValue ;
+
     if (allTagsHeight <= widgetRect.height())
     {
         // Просто заполняем все, текст помещается весь
@@ -370,31 +366,27 @@ void TagsPresenter::CalculateVecticalScroll(const QRect &editedTagRect)
     }
     else
     {
-        if (cursorYPosition - m_vecticalScrollValue >= widgetRect.height())
+        if (cursorYPosition - m_vecticalScrollValue >= widgetRect.height()-1)
         {
             //едитиэд текст не помещается, курсор находится снизу в текст эдите (прокрутить вниз)
-            m_vecticalScrollValue = cursorYPosition - widgetRect.height() + 1;
+            m_vecticalScrollValue = cursorYPosition +m_guiWidget->fontMetrics().height()- widgetRect.height() + 1;
         }
         else
-            if (cursorYPosition - m_vecticalScrollValue < 0 && m_vecticalScrollValue < allTagsHeight)
+        {
+            if (cursorYPosition - m_vecticalScrollValue <= 0 && m_vecticalScrollValue < allTagsHeight)
             {
-                //текст не помещается,  курсор находится вверху в текст эдите (прокрутить вверх)
-                m_vecticalScrollValue = cursorYPosition;
+//                qDebug()<< "firstElse val" <<cursorYPosition - m_vecticalScrollValue;
+                m_vecticalScrollValue=cursorYPosition;
+//                qDebug()<< " and "<<  m_vecticalScrollValue;
             }
             else
             {
-                if (allTagsHeight - m_vecticalScrollValue < widgetRect.height())
-                {
-                    // text doesn't fit, text document is to the left of lineRect; align
-                    // right
-                    m_vecticalScrollValue = allTagsHeight - widgetRect.height() + 1;
-                }
-                else
-                {
-                    //in case the text is bigger than the lineedit, the hscroll can never be negative
-                    m_vecticalScrollValue = qMax(0, m_vecticalScrollValue)+bottom_text_margin+tag_inner_bottom_padding;
-                }
+                //Поднялись выше, но текст еще в пределах вьюва
+//                 qDebug()<< "secondElse val" <<cursorYPosition - m_vecticalScrollValue;
+                m_vecticalScrollValue = allTagsHeight - widgetRect.height();
+//                qDebug()<<" and "<<  m_vecticalScrollValue;
             }
+        }
     }
 }
 

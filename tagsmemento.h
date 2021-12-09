@@ -58,7 +58,7 @@ public:
     QString& InsertCharectersInEdittedTagText(int startPos, const QString& string);
     QRect const& GetCurrentEdittedTagRect() const;
     void EditNewTag();
-    QVector<QTextLayout::FormatRange> formatting() const;
+    QVector<QTextLayout::FormatRange> EditetTextFormating() const;
     bool hasSelection() const noexcept;
     void removeSelection();
     void removeBackwardOne();
@@ -68,6 +68,7 @@ public:
     void EditPreviousTag();
     void EditNextTag();
     void SetTagEditableAtIndex(int i);
+     int GetAllTagsHeight() const;
 private:
     void CalculateTagsRects(QPoint& leftTopPoint, const QRect &widgetSizes, QVector<Tag> &Tags, int beginTagIndex, int lastTagIndex);
     void CalculateTagOnEdit(QPoint& leftTopPoint, const QRect &widgetSizes);
@@ -78,8 +79,7 @@ private:
     QString& RemoveCharectersInEdittedTagText(int startPos, int count);
     QRect& SetCurrentEdittedTagRect(const QRect &rect);
     void DeselectAll();
-    int GetAllTagsHeight() const;
-    qreal cursorToY();
+
 public:
     QWidget* m_guiWidget;
     QVector<Tag> tags;
