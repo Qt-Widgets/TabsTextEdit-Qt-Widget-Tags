@@ -2,6 +2,7 @@
 #define TAGSMEMENTO_H
 #include <QVector>
 #include <QPen>
+#include <QTimer>
 #include <QtMath>
 #include <QPainterPath>
 #include <QPainter>
@@ -35,63 +36,76 @@ const int tag_cross_spacing = 2;
 class TagsPresenter : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(int m_currentEditIndex READ GetCurrentEditIndex)
 public:
-    TagsPresenter(QWidget *view);
+    TagsPresenter(QWidget *view, QTextLayout *m_editedTextLayout);
     ~TagsPresenter();
-
-    void InitStyleOptionFrame(QStyleOptionFrame* option) const;
-    inline QRect GetCrossButtonRect(QRect const& r) const;
-    bool IsPointInCrossRectArea(int tagIndex, QPoint const& point) const;
-    void DrawTags(QPainter& p, int startIndex, int lastIndex, int row, int column) const;
-    QRect GetInputWidgetRect() const;
-    void CalculateRects();
-
-    void SetCursorVisible(bool visible);
-
-    void updateCursorBlinking();
-    void UpdateDisplayText();
-
-
-    QString const& GetCurrentEdittedTagText() const;
-
-
-    QString& InsertCharectersInEdittedTagText(int startPos, const QString& string);
-    QRect const& GetCurrentEdittedTagRect() const;
+public://сетеры гетеры
+    QVector<QString> GetTags() const;
+    void SetTags(const QVector<QString> &newTags);
+public://общие методы с коллекцией
+    int GetTagsCount() const;
+    void RemoveTagAtIndex(int index);
+    void InsertEmptyTagAtIndex(int index);
     void EditNewTag();
-    QVector<QTextLayout::FormatRange> EditetTextFormating() const;
-    bool hasSelection() const noexcept;
-    void removeSelection();
-    void removeBackwardOne();
-    void SelectAll();
-    void MoveCursor(int posX, int PosY, bool marked);
+public://курсор
+    int GetCursorPosition() const;
+    void SetCursorPosition(int position);
+public:
+    int GetCurrentEditIndex() const;
+public:// текст на тэгах
+    const QString& GetTagTextByIndex(int index);
+    QString& UpdateTextInEdittedTag(const QString &text);
+    QString& InsertCharectersInEdittedTagText(int startPositionInString, const QString& charecters);
+    const QString& GetCurrentEdittedTagText() const;
+    void RemoveCharecterInEditedTag();
+private:
+    QString& RemoveCharectersInEdittedTagText(int startPos, int count);
+public://координаты
+    void CalculateAllTagsRects();
+    bool IsPointInCrossRectArea(int index, QPoint const& point) const;
+    const QRect& GetTagRectByIndex(int index) const;
+    const QRect GetEditedTranslatedTagRect()const;
+    const QRect GetTranslatedTagRegByIndex(int index) const;
+    const QRect&  GetCurrentEdittedTagRect() const;
+    inline QRect GetCrossButtonRect(QRect const& r) const;
+    int GetVericalScrollValue() const;
+    void SetInputWidgetRect(const QRect &inputWidgetRect);
+private:
+    void CalculateTagsRects(QPoint& leftTopPoint, const QRect &widgetSizes, QVector<Tag> &Tags, int beginTagIndex, int lastTagIndex);
+    void CalculateTagOnEdit(QPoint& leftTopPoint, const QRect &widgetSizes);
+public:
     void CalculateVecticalScroll(QRect const& editedTagRect);
     void EditPreviousTag();
     void EditNextTag();
     void SetTagEditableAtIndex(int i);
-     int GetAllTagsHeight() const;
+    int GetAllTagsHeight() const;
 private:
-    void CalculateTagsRects(QPoint& leftTopPoint, const QRect &widgetSizes, QVector<Tag> &Tags, int beginTagIndex, int lastTagIndex);
-    void CalculateTagOnEdit(QPoint& leftTopPoint, const QRect &widgetSizes);
-    bool cursorVisible() const;
+
+
     void setEditingIndex(int index);
-    void SetCurrentText(QString const& text);
-    QString& SetTextInEdittedTagText(const QString &text);
-    QString& RemoveCharectersInEdittedTagText(int startPos, int count);
+
+
     QRect& SetCurrentEdittedTagRect(const QRect &rect);
-    void DeselectAll();
 
 public:
-    QWidget* m_guiWidget;
-    QVector<Tag> tags;
-    int currentEditIndex;
-    int m_cursorPosition;
+
     int m_cursorBlinkTimerId;
     bool m_cursorBlinkStatus;
+
+
+
+
+
+private:
+    QWidget* m_guiWidget;
     QTextLayout *m_textLayout;
-    int select_start;
-    int select_size;
-    QInputControl m_inputControl;
+    QVector<Tag> m_tags;
     int m_vecticalScrollValue;
+    int m_cursorPosition;
+    int m_currentEditIndex;
+    QRect m_inputWidgetRect;
+
 };
 
 #endif // TAGSMEMENTO_H

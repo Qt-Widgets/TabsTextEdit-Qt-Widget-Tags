@@ -3,19 +3,24 @@
 
 TagsLineEditWidget::TagsLineEditWidget(QWidget* parent)
     : QWidget(parent)
+    , m_textLayout(new QTextLayout())
+    , m_cursorBlinkTimerId(0)
+    , m_inputControl(QInputControl::TextEdit)
 
 {
     QFont font=this->font();
     font.setPixelSize(14);
     this->setFont(font);
-    m_tagsPresenter=new TagsPresenter(this);
+
+    m_tagsPresenter=new TagsPresenter(this, m_textLayout);
+    UpdateTextLayout();
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);//Растягивание виджета
     setFocusPolicy(Qt::StrongFocus);//Фокус пропадает как мышь уходит
     setCursor(Qt::IBeamCursor);
     setMouseTracking(true);
 
-    m_tagsPresenter->SetCursorVisible(hasFocus());
-    m_tagsPresenter->UpdateDisplayText();
+    SetCursorVisible(hasFocus());
+
 }
 
 TagsLineEditWidget::~TagsLineEditWidget()
@@ -25,22 +30,23 @@ TagsLineEditWidget::~TagsLineEditWidget()
 
 void TagsLineEditWidget::resizeEvent(QResizeEvent*)
 {
-    m_tagsPresenter->CalculateRects();
+    m_tagsPresenter->SetInputWidgetRect(GetInputWidgetRect());
+    m_tagsPresenter->CalculateAllTagsRects();
 }
 
 void TagsLineEditWidget::focusInEvent(QFocusEvent*)
 {
-    m_tagsPresenter->SetCursorVisible(true);
-    m_tagsPresenter->UpdateDisplayText();
-    m_tagsPresenter->CalculateRects();
+    SetCursorVisible(true);
+    UpdateTextLayout();
+    m_tagsPresenter->CalculateAllTagsRects();
     update();
 }
 
 void TagsLineEditWidget::focusOutEvent(QFocusEvent*)
 {
-    m_tagsPresenter->SetCursorVisible(false);
-    m_tagsPresenter->UpdateDisplayText();
-    m_tagsPresenter->CalculateRects();
+    SetCursorVisible(false);
+    UpdateTextLayout();
+    m_tagsPresenter->CalculateAllTagsRects();
     update();
 }
 
@@ -50,40 +56,40 @@ void TagsLineEditWidget::paintEvent(QPaintEvent*)
 
     // opt
     QStyleOptionFrame panel;
-    m_tagsPresenter->InitStyleOptionFrame(&panel);
+    InitStyleOptionFrame(&panel);
 
     // draw frame
     style()->drawPrimitive(QStyle::PE_PanelLineEdit, &panel, &painter, this);//поле лайн эдита
 
     // clip
-    QRect inputRect = m_tagsPresenter->GetInputWidgetRect();//поле где все + маргины
+    QRect inputRect = GetInputWidgetRect();//поле где все + маргины
     painter.setClipRect(inputRect);//Включает обрезку и задает область клипа заданному прямоугольнику с помощью заданной операции клипа. По умолчанию используется операция замены текущего прямоугольника клипа.
 
     const QRect &editedTagRect = m_tagsPresenter->GetCurrentEdittedTagRect();
     const QPoint &editedTextPoint = editedTagRect.topLeft() + QPoint(tag_inner_left_padding,
-                                                                  ( top_text_margin +tag_inner_top_padding));
+                                                                     ( top_text_margin +tag_inner_top_padding));
 
     // scroll
     m_tagsPresenter->CalculateVecticalScroll(editedTagRect);
 
     // tags
-    m_tagsPresenter->DrawTags(painter, 0, m_tagsPresenter->currentEditIndex, 0, 0);
+    DrawTagsOnWidget(painter, 0, m_tagsPresenter->GetCurrentEditIndex(), 0);
 
     // draw edited text
-    const QVector<QTextLayout::FormatRange>  textLayoutVector = m_tagsPresenter->EditetTextFormating();
-    m_tagsPresenter->m_textLayout->draw(&painter, editedTextPoint - QPoint(0, m_tagsPresenter->m_vecticalScrollValue), textLayoutVector);
+    const QVector<QTextLayout::FormatRange>  textLayoutVector = EditetTextFormating();
+    m_textLayout->draw(&painter, editedTextPoint - QPoint(0, m_tagsPresenter->GetVericalScrollValue()), textLayoutVector);
     // draw cursor
     if (m_tagsPresenter->m_cursorBlinkStatus)
     {
-        m_tagsPresenter->m_textLayout->drawCursor(&painter, editedTextPoint - QPointF( 0, m_tagsPresenter->m_vecticalScrollValue), m_tagsPresenter->m_cursorPosition);
+        m_textLayout->drawCursor(&painter, editedTextPoint - QPointF( 0, m_tagsPresenter->GetVericalScrollValue()), m_tagsPresenter->GetCursorPosition());
     }
     //end
-    m_tagsPresenter->DrawTags(painter, m_tagsPresenter->currentEditIndex+1, m_tagsPresenter->tags.count(), 0, 0);
+    DrawTagsOnWidget(painter, m_tagsPresenter->GetCurrentEditIndex()+1, m_tagsPresenter->GetTagsCount(), 0);
 }
 
 void TagsLineEditWidget::timerEvent(QTimerEvent* event)
 {
-    if (event->timerId() == m_tagsPresenter->m_cursorBlinkTimerId)
+    if (event->timerId() == m_cursorBlinkTimerId)
     {
         m_tagsPresenter->m_cursorBlinkStatus = !m_tagsPresenter->m_cursorBlinkStatus;
         update();
@@ -93,28 +99,24 @@ void TagsLineEditWidget::timerEvent(QTimerEvent* event)
 void TagsLineEditWidget::mousePressEvent(QMouseEvent* event)
 {
     bool hasTagFound = false;
-    for (int i = 0; i < m_tagsPresenter->tags.count(); ++i)
+    for (int i = 0; i < m_tagsPresenter->GetTagsCount(); ++i)
     {
         if (m_tagsPresenter->IsPointInCrossRectArea(i, event->pos()))
         {
-            m_tagsPresenter->tags.removeAt(i);
-            if (i <= m_tagsPresenter->currentEditIndex)
-            {
-                m_tagsPresenter->currentEditIndex=m_tagsPresenter->currentEditIndex-1;
-            }
+            m_tagsPresenter->RemoveTagAtIndex(i);
             hasTagFound = true;
             break;
         }
         else
         {
-            if (m_tagsPresenter->tags.at(i).rect.translated(0, -m_tagsPresenter->m_vecticalScrollValue).contains(event->pos()))
+            if (m_tagsPresenter->GetTranslatedTagRegByIndex(i).contains(event->pos()))
             {
-                if (m_tagsPresenter->currentEditIndex == i)
+                if (m_tagsPresenter->GetCurrentEditIndex() == i)
                 {
-                    const QTextLine &textLine=m_tagsPresenter->m_textLayout->lineAt(0);
-                    int xEditedTopLeft=m_tagsPresenter->GetCurrentEdittedTagRect().translated( 0, -m_tagsPresenter->m_vecticalScrollValue).topLeft().x();
+                    const QTextLine &textLine=m_textLayout->lineAt(0);
+                    int xEditedTopLeft=m_tagsPresenter->GetEditedTranslatedTagRect().topLeft().x();
                     int cursorPositionAtTheEndOfTag=textLine.xToCursor(event->pos().x() -xEditedTopLeft);
-                    m_tagsPresenter->MoveCursor(cursorPositionAtTheEndOfTag, 0, false);
+                    m_tagsPresenter->SetCursorPosition(cursorPositionAtTheEndOfTag);
                 }
                 else
                 {
@@ -141,7 +143,7 @@ QSize TagsLineEditWidget::sizeHint() const
     int heightResult = fontMetrics.height() + 2 * vertical_margin + top_text_margin + bottom_text_margin + topmargin + bottommargin;
     int widthResult = fontMetrics.boundingRect(QLatin1Char('x')).width() * 17 + 2 * horizontal_margin + leftmargin + rightmargin; // "some"
     QStyleOptionFrame opt;
-    m_tagsPresenter->InitStyleOptionFrame(&opt);
+    InitStyleOptionFrame(&opt);
     return (style()->sizeFromContents(QStyle::CT_LineEdit, &opt,
                                       QSize(widthResult, heightResult).expandedTo(QApplication::globalStrut()), this));
 }
@@ -152,7 +154,7 @@ QSize TagsLineEditWidget::minimumSizeHint() const {
     int heightResult = fontmetrics.height() + qMax(2 * vertical_margin, fontmetrics.leading()) + top_text_margin + bottom_text_margin + topmargin + bottommargin;
     int widthResult = fontmetrics.maxWidth() + leftmargin + rightmargin;
     QStyleOptionFrame opt;
-    m_tagsPresenter->InitStyleOptionFrame(&opt);
+    InitStyleOptionFrame(&opt);
     return (style()->sizeFromContents(QStyle::CT_LineEdit, &opt,
                                       QSize(widthResult, heightResult).expandedTo(QApplication::globalStrut()), this));
 }
@@ -162,123 +164,113 @@ void TagsLineEditWidget::keyPressEvent(QKeyEvent* event)
     event->setAccepted(false);
     bool isCharecterKey = false;
 
-    if (event == QKeySequence::SelectAll)
+    if (event == QKeySequence::SelectPreviousChar)
     {
-        m_tagsPresenter->SelectAll();
+        m_tagsPresenter->SetCursorPosition(m_textLayout->previousCursorPosition(m_tagsPresenter->GetCursorPosition()));
         event->accept();
     }
     else
-        if (event == QKeySequence::SelectPreviousChar)
+        if (event == QKeySequence::SelectNextChar)
         {
-            m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->previousCursorPosition(m_tagsPresenter->m_cursorPosition), 0, true);
+            m_tagsPresenter->SetCursorPosition(m_textLayout->nextCursorPosition(m_tagsPresenter->GetCursorPosition()));
             event->accept();
         }
         else
-            if (event == QKeySequence::SelectNextChar)
+        {
+            switch (event->key())
             {
-                m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->nextCursorPosition(m_tagsPresenter->m_cursorPosition), 0, true);
+            case Qt::Key_Left:
+            {
+                if (m_tagsPresenter->GetCursorPosition() == 0)
+                {
+                    m_tagsPresenter->EditPreviousTag();
+                }
+                else
+                {
+                    m_tagsPresenter->SetCursorPosition(m_textLayout->previousCursorPosition(m_tagsPresenter->GetCursorPosition()));
+                }
                 event->accept();
+                break;
             }
-            else
+            case Qt::Key_Right:
             {
-                switch (event->key())
+                if (m_tagsPresenter->GetCursorPosition() == m_tagsPresenter->GetCurrentEdittedTagText().size())
                 {
-                case Qt::Key_Left:
+                    m_tagsPresenter->EditNextTag();
+                }
+                else
                 {
-                    if (m_tagsPresenter->m_cursorPosition == 0)
+                    m_tagsPresenter->SetCursorPosition(m_textLayout->nextCursorPosition(m_tagsPresenter->GetCursorPosition()));
+                }
+                event->accept();
+                break;
+            }
+            case Qt::Key_Home:
+            {
+                if (m_tagsPresenter->GetCursorPosition() == 0)
+                {
+                    m_tagsPresenter->SetTagEditableAtIndex(0);
+                }
+                else
+                {
+                    m_tagsPresenter->SetCursorPosition(0);
+                }
+                event->accept();
+                break;
+            }
+            case Qt::Key_End:
+            {
+                if (m_tagsPresenter->GetCursorPosition() == m_tagsPresenter->GetCurrentEdittedTagText().size())
+                {
+                    m_tagsPresenter->SetTagEditableAtIndex(m_tagsPresenter->GetTagsCount() - 1);
+                }
+                else
+                {
+                    m_tagsPresenter->SetCursorPosition(m_tagsPresenter->GetCurrentEdittedTagText().length());
+                }
+                event->accept();
+                break;
+            }
+            case Qt::Key_Backspace:
+            {
+                if (!m_tagsPresenter->GetCurrentEdittedTagText().isEmpty())
+                {
+                    m_tagsPresenter->RemoveCharecterInEditedTag();
+                }
+                else
+                {
+                    if (m_tagsPresenter->GetCurrentEditIndex() > 0)
                     {
                         m_tagsPresenter->EditPreviousTag();
                     }
-                    else
-                    {
-                        m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->previousCursorPosition(m_tagsPresenter->m_cursorPosition), 0, false);
-                    }
-                    event->accept();
-                    break;
                 }
-                case Qt::Key_Right:
-                {
-                    if (m_tagsPresenter->m_cursorPosition == m_tagsPresenter->GetCurrentEdittedTagText().size())
-                    {
-                        m_tagsPresenter->EditNextTag();
-                    }
-                    else
-                    {
-                        m_tagsPresenter->MoveCursor(m_tagsPresenter->m_textLayout->nextCursorPosition(m_tagsPresenter->m_cursorPosition), 0, false);
-                    }
-                    event->accept();
-                    break;
-                }
-                case Qt::Key_Home:
-                {
-                    if (m_tagsPresenter->m_cursorPosition == 0)
-                    {
-                        m_tagsPresenter->SetTagEditableAtIndex(0);
-                    }
-                    else
-                    {
-                        m_tagsPresenter->MoveCursor(0, 0, false);
-                    }
-                    event->accept();
-                    break;
-                }
-                case Qt::Key_End:
-                {
-                    if (m_tagsPresenter->m_cursorPosition == m_tagsPresenter->GetCurrentEdittedTagText().size())
-                    {
-                        m_tagsPresenter->SetTagEditableAtIndex(m_tagsPresenter->tags.size() - 1);
-                    }
-                    else
-                    {
-                        m_tagsPresenter->MoveCursor(m_tagsPresenter->GetCurrentEdittedTagText().length(), 0, false);
-                    }
-                    event->accept();
-                    break;
-                }
-                case Qt::Key_Backspace:
-                {
-                    if (!m_tagsPresenter->GetCurrentEdittedTagText().isEmpty())
-                    {
-                        m_tagsPresenter->removeBackwardOne();
-                    }
-                    else
-                    {
-                        if (m_tagsPresenter->currentEditIndex > 0)
-                        {
-                            m_tagsPresenter->EditPreviousTag();
-                        }
-                    }
-                    event->accept();
-                    break;
-                }
-                case Qt::Key_Space :
-                case Qt::Key_Enter :
-                case Qt::Key_Return :
-                {
-                    if (!m_tagsPresenter->GetCurrentEdittedTagText().isEmpty())
-                    {
-                        m_tagsPresenter->tags.insert(m_tagsPresenter->tags.begin() + std::ptrdiff_t(m_tagsPresenter->currentEditIndex + 1), Tag());
-                        m_tagsPresenter->EditNextTag();
-                    }
-                    event->accept();
-                    break;
-                }
-                default:
-                {
-                    isCharecterKey = true;
-                    break;
-                }
-                }
+                event->accept();
+                break;
             }
-
-    if (isCharecterKey && m_tagsPresenter->m_inputControl.isAcceptableInput(event))
-    {
-        if (m_tagsPresenter->hasSelection())
-        {
-            m_tagsPresenter->removeSelection();
+            case Qt::Key_Space :
+            case Qt::Key_Enter :
+            case Qt::Key_Return :
+            {
+                if (!m_tagsPresenter->GetCurrentEdittedTagText().isEmpty())
+                {
+                    m_tagsPresenter->InsertEmptyTagAtIndex(m_tagsPresenter->GetCurrentEditIndex() + 1);
+                    m_tagsPresenter->EditNextTag();
+                }
+                event->accept();
+                break;
+            }
+            default:
+            {
+                isCharecterKey = true;
+                break;
+            }
+            }
         }
-        m_tagsPresenter->InsertCharectersInEdittedTagText(m_tagsPresenter->m_cursorPosition, event->text());
-        m_tagsPresenter->m_cursorPosition =m_tagsPresenter->m_cursorPosition + event->text().count();
+
+    if (isCharecterKey && m_inputControl.isAcceptableInput(event))
+    {
+        m_tagsPresenter->InsertCharectersInEdittedTagText(m_tagsPresenter->GetCursorPosition(), event->text());
+        m_tagsPresenter->SetCursorPosition(m_tagsPresenter->GetCursorPosition() + event->text().count());
         event->accept();
         isCharecterKey = false;
     }
@@ -290,36 +282,16 @@ void TagsLineEditWidget::keyPressEvent(QKeyEvent* event)
     }
 }
 
-void TagsLineEditWidget::SetTags(QVector<QString> const& tags)
+void TagsLineEditWidget::SetTags(QVector<QString> const& newTags)
 {
-    m_tagsPresenter->tags.clear();
-    for (int i=0; i<tags.count(); ++i)
-    {
-        m_tagsPresenter->tags.append(Tag{tags.at(i), QRect()});
-    }
-    m_tagsPresenter->currentEditIndex = 0;
-    m_tagsPresenter->MoveCursor(0, 0, false);
-
-    m_tagsPresenter->EditNewTag();
-    m_tagsPresenter->UpdateDisplayText();
-    m_tagsPresenter->CalculateRects();
-
+    m_tagsPresenter->SetTags(newTags);
+    UpdateTextLayout();
     update();
-}
-
-QVector<QString> TagsLineEditWidget::GetTags() const
-{
-    QVector<QString> tagList;
-    for (Tag &item : m_tagsPresenter->tags)
-    {
-        tagList.append(item.text);
-    }
-    return tagList;
 }
 
 void TagsLineEditWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    for (int i = 0; i < m_tagsPresenter->tags.size(); ++i)
+    for (int i = 0; i < m_tagsPresenter->GetTagsCount(); ++i)
     {
         if (m_tagsPresenter->IsPointInCrossRectArea(i, event->pos()))
         {
@@ -330,27 +302,132 @@ void TagsLineEditWidget::mouseMoveEvent(QMouseEvent* event)
     setCursor(Qt::IBeamCursor);
 }
 
+void TagsLineEditWidget::InitStyleOptionFrame(QStyleOptionFrame *option) const
+{
+    Q_ASSERT(option);
+    option->initFrom(this);
+    option->rect = this->contentsRect();
+    option->lineWidth = this->style()->pixelMetric(QStyle::PM_DefaultFrameWidth, option, this);
+    option->midLineWidth = 0;
+    option->state |= QStyle::State_Sunken;
+    option->features = QStyleOptionFrame::None;
+}
+
 void TagsLineEditWidget::RepaintWidget()
 {
-    m_tagsPresenter->UpdateDisplayText();
-    m_tagsPresenter->CalculateRects();
-    m_tagsPresenter->updateCursorBlinking();
+    UpdateTextLayout();
+    m_tagsPresenter->CalculateAllTagsRects();
+    UpdateCursorBlinking();
     update();
+}
+
+void TagsLineEditWidget::UpdateTextLayout()
+{
+    m_textLayout->clearLayout();
+    m_textLayout->setText(m_tagsPresenter->GetCurrentEdittedTagText());
+    m_textLayout->beginLayout();
+    m_textLayout->createLine();
+    m_textLayout->endLayout();
+}
+
+void TagsLineEditWidget::UpdateCursorBlinking()
+{
+    SetCursorVisible(IsCursorVisible());
+}
+
+bool TagsLineEditWidget::IsCursorVisible() const
+{
+    return m_cursorBlinkTimerId;
+}
+
+void TagsLineEditWidget::SetCursorVisible(bool visible)
+{
+    if (m_cursorBlinkTimerId)
+    {
+        killTimer(m_cursorBlinkTimerId);
+        m_cursorBlinkTimerId = 0;
+        m_cursorBlinkStatus = true;
+    }
+
+    if (visible)
+    {
+        int cursorFlashTime = QGuiApplication::styleHints()->cursorFlashTime();
+        if (cursorFlashTime >= 2)
+        {
+            m_cursorBlinkTimerId = startTimer(cursorFlashTime / 2);
+        }
+    }
+    else
+    {
+        m_cursorBlinkStatus = false;
+    }
+}
+
+QVector<QTextLayout::FormatRange> TagsLineEditWidget::EditetTextFormating() const
+{
+    QTextLayout::FormatRange selection;
+    return {selection};
+}
+
+QRect TagsLineEditWidget::GetInputWidgetRect()
+{
+    QStyleOptionFrame panel;
+    InitStyleOptionFrame(&panel);
+    QRect inputWidgetRect = this->style()->subElementRect(QStyle::SE_LineEditContents, &panel, this);
+    inputWidgetRect.adjust(left_text_margin, top_text_margin, -right_text_margin, -bottom_text_margin);
+    return inputWidgetRect;
+}
+
+void TagsLineEditWidget::DrawTagsOnWidget(QPainter &p, int startIndex, int lastIndex, int row)
+{
+    Q_ASSERT(startIndex>=0 && startIndex<=lastIndex);
+    for (int i=startIndex; i< lastIndex; ++i)
+    {
+        // Рисуем прямоугольник тега
+        QRect const& tagRect = m_tagsPresenter->GetTranslatedTagRegByIndex(i);
+        const QColor blueColor(0, 96, 100, 150);
+        QPainterPath path;
+        path.addRoundedRect(tagRect, 4, 4);
+        p.fillPath(path, blueColor);
+
+        // Рисуем текст
+        QPoint const textPositionTopLeft = tagRect.topLeft() +
+                QPoint(tag_inner_left_padding,
+                       this->fontMetrics().ascent() +
+                       ((tagRect.height()/(row+1) - this->fontMetrics().height()) / 2*(row+1)));
+        p.setPen(Qt::black);
+        p.drawText(textPositionTopLeft, m_tagsPresenter->GetTagTextByIndex(i));
+
+        // Высчитаваем крестик закрытия
+        QRect crossRect = m_tagsPresenter->GetCrossButtonRect(tagRect);
+
+        // Рисуем крестик закрытия
+        QPen pen = p.pen();
+        pen.setWidth(2);
+
+        p.save();
+        p.setPen(pen);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.drawLine(QLineF(crossRect.topLeft(), crossRect.bottomRight()));
+        p.drawLine(QLineF(crossRect.bottomLeft(), crossRect.topRight()));
+        p.restore();
+    }
 }
 
 void TagsLineEditWidget::wheelEvent(QWheelEvent *event)
 {
 
-    int numDegrees = event->angleDelta().y();
-    qDebug()<< "numDegrees" << numDegrees;
-    if(numDegrees>0)
-    {
-        const int allTagsHeight = m_tagsPresenter->GetAllTagsHeight();
-        m_tagsPresenter->m_vecticalScrollValue=qMin(allTagsHeight, m_tagsPresenter->m_vecticalScrollValue+=20);
-    }
-    else
-    {
-        m_tagsPresenter->m_vecticalScrollValue=qMax(0, m_tagsPresenter->m_vecticalScrollValue-=20);
-    }
-    RepaintWidget();
+//    int numDegrees = event->angleDelta().y();
+//    qDebug()<< m_tagsPresenter->m_vecticalScrollValue << " numDegrees " << numDegrees ;
+//    if(numDegrees>0)
+//    {
+//        const int allTagsHeight = m_tagsPresenter->GetAllTagsHeight();
+//        m_tagsPresenter->m_vecticalScrollValue=qMin(allTagsHeight, m_tagsPresenter->m_vecticalScrollValue+=20);
+//    }
+//    else
+//    {
+//        m_tagsPresenter->m_vecticalScrollValue=qMax(0, m_tagsPresenter->m_vecticalScrollValue-=20);
+//    }
+//    m_tagsPresenter->killTimer(m_tagsPresenter->m_cursorBlinkTimerId);
+//    RepaintWidget();
 }
