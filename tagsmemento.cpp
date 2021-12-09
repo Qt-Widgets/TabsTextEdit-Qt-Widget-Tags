@@ -12,7 +12,7 @@ TagsPresenter::TagsPresenter(QWidget *view)
     , select_start(0)
     , select_size(0)
     , m_inputControl(QInputControl::TextEdit)
-    , hscroll(0)
+    , m_vecticalScrollValue(0)
 {
     tags.append(Tag());
 }
@@ -44,7 +44,7 @@ bool TagsPresenter::IsPointInCrossRectArea(int tagIndex, const QPoint &point) co
 {
     QRect CrossButtonRect(GetCrossButtonRect(tags.at(tagIndex).rect));
     CrossButtonRect.adjust(-2, 0, 0, 0);
-    CrossButtonRect.translate(-hscroll, 0);
+    CrossButtonRect.translate(0, -m_vecticalScrollValue);
     if(CrossButtonRect.contains(point))
     {
         if(!cursorVisible() || tagIndex!=currentEditIndex)
@@ -61,7 +61,7 @@ void TagsPresenter::DrawTags(QPainter &p, int startIndex, int lastIndex, int row
     for (int i=startIndex; i< lastIndex; ++i)
     {
         // Рисуем прямоугольник тега
-        QRect const& tagRect = tags.at(i).rect.translated(-hscroll, 0);
+        QRect const& tagRect = tags.at(i).rect.translated(0, -m_vecticalScrollValue);
         const QColor blueColor(0, 96, 100, 150);
         QPainterPath path;
         path.addRoundedRect(tagRect, 4, 4);
@@ -143,7 +143,7 @@ void TagsPresenter::CalculateTagOnEdit(QPoint &leftTopPoint, const QRect &widget
     const int editedTagHeight=tag_inner_top_padding+ fontMetricsHeight + tag_inner_bottom_padding;
     const int fontMetricsWidth=FONT_METRICS_WIDTH(m_guiWidget->fontMetrics(), m_textLayout->text());
     const int editedTagWidth = fontMetricsWidth +tag_inner_left_padding + tag_inner_right_padding;
-    if (leftTopPoint.x() + editedTagWidth < widgetSizes.width())
+    if (leftTopPoint.x() + editedTagWidth+tag_inner_right_padding < widgetSizes.width())
     {
         SetCurrentEdittedTagRect(QRect(leftTopPoint, QSize(editedTagWidth, editedTagHeight)));
     }
@@ -191,7 +191,6 @@ void TagsPresenter::updateCursorBlinking()
 
 void TagsPresenter::UpdateDisplayText()
 {
-    //        MakeLayout();
     m_textLayout->clearLayout();
     m_textLayout->setText(GetCurrentEdittedTagText());
     m_textLayout->beginLayout();
@@ -349,67 +348,54 @@ void TagsPresenter::MoveCursor(int posX, int PosY,  bool marked)
     m_cursorPosition = posX;
 }
 
-qreal TagsPresenter::natrualWidth() const
+int TagsPresenter::GetAllTagsHeight() const
 {
-    return tags.back().rect.right() - tags.front().rect.left();
+    return tags.back().rect.bottom() - tags.front().rect.top();
 }
 
-qreal TagsPresenter::cursorToX()
+qreal TagsPresenter::cursorToY()
 {
     return m_textLayout->lineAt(0).cursorToX(m_cursorPosition);
 }
 
-void TagsPresenter::MakeLayout()
+void TagsPresenter::CalculateVecticalScroll(const QRect &editedTagRect)
 {
-    int vertPos=0;
-    QTextLine line;
-    m_textLayout->setText(GetCurrentEdittedTagText());
-    m_textLayout->beginLayout();
-    line = m_textLayout->createLine();
-    while (line.isValid())
+    const QRect widgetRect = GetInputWidgetRect();
+    const int allTagsHeight = GetAllTagsHeight();
+    int const cursorYPosition = editedTagRect.y()+bottom_text_margin+tag_inner_bottom_padding+top_text_margin+tag_inner_top_padding/* + qRound(cursorToY())*/;// поменять метод
+    if (allTagsHeight <= widgetRect.height())
     {
-        line.setLineWidth(m_guiWidget->width());
-        line.setPosition(QPointF(0, 0));
-        vertPos += line.height();
-        line = m_textLayout->createLine();
-    }
-    m_textLayout->endLayout();
-}
-
-void TagsPresenter::calcHScroll(const QRect &r)
-{
-    auto const rect = GetInputWidgetRect();
-    auto const width_used = qRound(natrualWidth()) + 1;
-    int const cix = r.x() + qRound(cursorToX());
-    if (width_used <= rect.width())
-    {
-        // text fit
-        hscroll = 0;
+        // Просто заполняем все, текст помещается весь
+        m_vecticalScrollValue = 0;
     }
     else
-        if (cix - hscroll >= rect.width())
+    {
+        if (cursorYPosition - m_vecticalScrollValue >= widgetRect.height())
         {
-            // text doesn't fit, cursor is to the right of lineRect (scroll right)
-            hscroll = cix - rect.width() + 1;
+            //едитиэд текст не помещается, курсор находится снизу в текст эдите (прокрутить вниз)
+            m_vecticalScrollValue = cursorYPosition - widgetRect.height() + 1;
         }
         else
-            if (cix - hscroll < 0 && hscroll < width_used)
+            if (cursorYPosition - m_vecticalScrollValue < 0 && m_vecticalScrollValue < allTagsHeight)
             {
-                // text doesn't fit, cursor is to the left of lineRect (scroll left)
-                hscroll = cix;
+                //текст не помещается,  курсор находится вверху в текст эдите (прокрутить вверх)
+                m_vecticalScrollValue = cursorYPosition;
             }
             else
-                if (width_used - hscroll < rect.width())
+            {
+                if (allTagsHeight - m_vecticalScrollValue < widgetRect.height())
                 {
                     // text doesn't fit, text document is to the left of lineRect; align
                     // right
-                    hscroll = width_used - rect.width() + 1;
+                    m_vecticalScrollValue = allTagsHeight - widgetRect.height() + 1;
                 }
                 else
                 {
                     //in case the text is bigger than the lineedit, the hscroll can never be negative
-                    hscroll = qMax(0, hscroll);
+                    m_vecticalScrollValue = qMax(0, m_vecticalScrollValue)+bottom_text_margin+tag_inner_bottom_padding;
                 }
+            }
+    }
 }
 
 void TagsPresenter::EditPreviousTag()

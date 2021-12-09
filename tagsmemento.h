@@ -2,6 +2,7 @@
 #define TAGSMEMENTO_H
 #include <QVector>
 #include <QPen>
+#include <QtMath>
 #include <QPainterPath>
 #include <QPainter>
 #include <QStyleHints>
@@ -63,7 +64,7 @@ public:
     void removeBackwardOne();
     void SelectAll();
     void MoveCursor(int posX, int PosY, bool marked);
-    void calcHScroll(QRect const& r);
+    void CalculateVecticalScroll(QRect const& editedTagRect);
     void EditPreviousTag();
     void EditNextTag();
     void SetTagEditableAtIndex(int i);
@@ -77,10 +78,8 @@ private:
     QString& RemoveCharectersInEdittedTagText(int startPos, int count);
     QRect& SetCurrentEdittedTagRect(const QRect &rect);
     void DeselectAll();
-    qreal natrualWidth() const;
-    qreal cursorToX();
-private:
-    void MakeLayout();
+    int GetAllTagsHeight() const;
+    qreal cursorToY();
 public:
     QWidget* m_guiWidget;
     QVector<Tag> tags;
@@ -92,7 +91,7 @@ public:
     int select_start;
     int select_size;
     QInputControl m_inputControl;
-    int hscroll;
+    int m_vecticalScrollValue;
 };
 
 #endif // TAGSMEMENTO_H
