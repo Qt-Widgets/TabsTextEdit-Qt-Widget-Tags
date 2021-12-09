@@ -2,8 +2,12 @@
 
 TagsLineEditWidget::TagsLineEditWidget(QWidget* parent)
     : QWidget(parent)
-    , m_tagsPresenter(new TagsPresenter(this))
+
 {
+    QFont font=this->font();
+    font.setPixelSize(14);
+    this->setFont(font);
+    m_tagsPresenter=new TagsPresenter(this);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);//Растягивание виджета
     setFocusPolicy(Qt::StrongFocus);//Фокус пропадает как мышь уходит
     setCursor(Qt::IBeamCursor);
@@ -66,7 +70,7 @@ void TagsLineEditWidget::paintEvent(QPaintEvent*)
 
     // draw edited text
     auto const formatting = m_tagsPresenter->formatting();
-    m_tagsPresenter->m_textLayout->draw(&painter, editedTextPoint - QPointF(m_tagsPresenter->hscroll, 0), formatting);
+    m_tagsPresenter->m_textLayout->draw(&painter, editedTextPoint - QPoint(m_tagsPresenter->hscroll, 0), formatting);
     // draw cursor
     if (m_tagsPresenter->m_cursorBlinkStatus)
     {
@@ -90,7 +94,7 @@ void TagsLineEditWidget::mousePressEvent(QMouseEvent* event)
     bool hasTagFound = false;
     for (int i = 0; i < m_tagsPresenter->tags.count(); ++i)
     {
-        if (m_tagsPresenter->IsPointInCrossArea(i, event->pos()))
+        if (m_tagsPresenter->IsPointInCrossRectArea(i, event->pos()))
         {
             m_tagsPresenter->tags.removeAt(i);
             if (i <= m_tagsPresenter->currentEditIndex)
@@ -323,7 +327,7 @@ void TagsLineEditWidget::mouseMoveEvent(QMouseEvent* event)
 {
     for (int i = 0; i < m_tagsPresenter->tags.size(); ++i)
     {
-        if (m_tagsPresenter->IsPointInCrossArea(i, event->pos()))
+        if (m_tagsPresenter->IsPointInCrossRectArea(i, event->pos()))
         {
             setCursor(Qt::ArrowCursor);
             return;

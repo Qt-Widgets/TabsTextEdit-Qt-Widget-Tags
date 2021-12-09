@@ -40,14 +40,14 @@ QRect TagsPresenter::GetCrossButtonRect(const QRect &r) const
     return crossRect;
 }
 
-bool TagsPresenter::IsPointInCrossArea(int tag_index, const QPoint &point) const
+bool TagsPresenter::IsPointInCrossRectArea(int tagIndex, const QPoint &point) const
 {
-    QRect CrossButtonRect(GetCrossButtonRect(tags.at(tag_index).rect));
+    QRect CrossButtonRect(GetCrossButtonRect(tags.at(tagIndex).rect));
     CrossButtonRect.adjust(-2, 0, 0, 0);
     CrossButtonRect.translate(-hscroll, 0);
     if(CrossButtonRect.contains(point))
     {
-        if(!cursorVisible() || tag_index!=currentEditIndex)
+        if(!cursorVisible() || tagIndex!=currentEditIndex)
         {
             return true;
         }
@@ -72,7 +72,7 @@ void TagsPresenter::DrawTags(QPainter &p, int startIndex, int lastIndex, int row
                 QPoint(tag_inner_left_padding,
                        m_guiWidget->fontMetrics().ascent() +
                        ((tagRect.height()/(row+1) - m_guiWidget->fontMetrics().height()) / 2*(row+1)));
-        p.setPen(Qt::white);
+        p.setPen(Qt::black);
         p.drawText(textPositionTopLeft, tags.at(i).text);
 
         // Высчитаваем крестик закрытия
@@ -125,7 +125,7 @@ void TagsPresenter::CalculateTagsRects(QPoint &leftTopPoint,const QRect &widgetS
         QRect newTagRect(leftTopPoint, QSize(textMetricsWidth, fontMetricsHeight));//прямоугольник тэга
         newTagRect.adjust(tag_inner_left_padding,
                           tag_inner_top_padding,
-                          2*tag_inner_right_padding + tag_cross_spacing + tag_cross_width,
+                          3*tag_inner_right_padding + tag_cross_spacing + tag_cross_width,
                           tag_inner_bottom_padding);//Добавляет соответственно к существующим координатам прямоугольника.
         //Пояснение:!
         //dx1=tag_inner_left_padding - отступ слева что бы место было
@@ -151,7 +151,7 @@ void TagsPresenter::CalculateTagOnEdit(QPoint &leftTopPoint, const QRect &widget
     {
         leftTopPoint.setX(0);
         leftTopPoint.setY(leftTopPoint.y()+2*tag_inner_bottom_padding+fontMetricsHeight+tag_inner_top_padding);
-        SetCurrentEdittedTagRect(QRect(leftTopPoint, QSize(editedTagWidth, editedTagHeight)));
+        SetCurrentEdittedTagRect(QRect(leftTopPoint+QPoint(0, tag_inner_bottom_padding), QSize(editedTagWidth, editedTagHeight)));
     }
     leftTopPoint += QPoint(editedTagWidth + tag_horisontal_spacing, 0);
 }

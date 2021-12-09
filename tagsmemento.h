@@ -40,7 +40,7 @@ public:
 
     void InitStyleOptionFrame(QStyleOptionFrame* option) const;
     inline QRect GetCrossButtonRect(QRect const& r) const;
-    bool IsPointInCrossArea(int tag_index, QPoint const& point) const;
+    bool IsPointInCrossRectArea(int tagIndex, QPoint const& point) const;
     void DrawTags(QPainter& p, int startIndex, int lastIndex, int row, int column) const;
     QRect GetInputWidgetRect() const;
     void CalculateRects();
