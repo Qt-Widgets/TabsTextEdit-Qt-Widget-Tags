@@ -59,6 +59,6 @@ private:
    int m_cursorBlinkTimerId;
    bool m_cursorBlinkStatus;
    QInputControl m_inputControl;
-   TagsPresenter *m_tagsPresenter;
+   QSharedPointer<TagsPresenter> m_tagsPresenter;
 };
 #endif // TAGSLINEWIDGET_H

@@ -13,7 +13,7 @@ TagsLineEditWidget::TagsLineEditWidget(QWidget* parent)
     font.setPixelSize(14);
     this->setFont(font);
 
-    m_tagsPresenter=new TagsPresenter(this->fontMetrics(), m_textLayout);
+    m_tagsPresenter=QSharedPointer<TagsPresenter>(new TagsPresenter(this->fontMetrics(), m_textLayout));
     UpdateTextLayout();
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);//Растягивание виджета
     setFocusPolicy(Qt::StrongFocus);//Фокус пропадает как мышь уходит
