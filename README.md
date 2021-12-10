@@ -6,6 +6,8 @@ Use https://github.com/nicktrandafil/tags if you need lineEdit field
 
 Auto split input text into tags by Space or Enter key.
 
+Auto prevent duplicate tags.
+
 How to use:
 
 1. Copy TagsPresenter TagsLineEditWidget and Tag into your project

@@ -249,8 +249,9 @@ void TagsLineEditWidget::keyPressEvent(QKeyEvent* event)
             case Qt::Key_Space :
             case Qt::Key_Enter :
             case Qt::Key_Return :
+            case ',':
             {
-                if (!m_tagsPresenter->GetCurrentEdittedTagText().isEmpty())
+                if (!m_tagsPresenter->GetCurrentEdittedTagText().isEmpty() && !m_tagsPresenter->IsEditedTextHasDuplicate())
                 {
                     m_tagsPresenter->InsertEmptyTagAtIndex(m_tagsPresenter->GetCurrentEditIndex() + 1);
                     m_tagsPresenter->EditNextTag();
@@ -286,6 +287,11 @@ void TagsLineEditWidget::SetTags(QVector<QString> const& newTags)
     m_tagsPresenter->SetTags(newTags);
     UpdateTextLayout();
     update();
+}
+
+QVector<QString> TagsLineEditWidget::GetTags()
+{
+    return m_tagsPresenter->GetTags();
 }
 
 void TagsLineEditWidget::mouseMoveEvent(QMouseEvent* event)
@@ -341,7 +347,7 @@ bool TagsLineEditWidget::IsCursorVisible() const
 
 void TagsLineEditWidget::SetCursorVisible(bool visible)
 {
-    if (m_cursorBlinkTimerId)
+    if (m_cursorBlinkStatus)
     {
         killTimer(m_cursorBlinkTimerId);
         m_cursorBlinkTimerId = 0;
@@ -408,22 +414,4 @@ void TagsLineEditWidget::DrawTagsOnWidget(QPainter &p, int startIndex, int lastI
         p.drawLine(QLineF(crossRect.bottomLeft(), crossRect.topRight()));
         p.restore();
     }
-}
-
-void TagsLineEditWidget::wheelEvent(QWheelEvent *event)
-{
-
-    //    int numDegrees = event->angleDelta().y();
-    //    qDebug()<< m_tagsPresenter->m_vecticalScrollValue << " numDegrees " << numDegrees ;
-    //    if(numDegrees>0)
-    //    {
-    //        const int allTagsHeight = m_tagsPresenter->GetAllTagsHeight();
-    //        m_tagsPresenter->m_vecticalScrollValue=qMin(allTagsHeight, m_tagsPresenter->m_vecticalScrollValue+=20);
-    //    }
-    //    else
-    //    {
-    //        m_tagsPresenter->m_vecticalScrollValue=qMax(0, m_tagsPresenter->m_vecticalScrollValue-=20);
-    //    }
-    //    m_tagsPresenter->killTimer(m_tagsPresenter->m_cursorBlinkTimerId);
-    //    RepaintWidget();
 }

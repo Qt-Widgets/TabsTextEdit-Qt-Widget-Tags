@@ -185,6 +185,26 @@ void TagsPresenter::InsertEmptyTagAtIndex(int index)
     }
 }
 
+bool TagsPresenter::IsEditedTextHasDuplicate()
+{
+    const QString &currentEditetTagText=GetTagTextByIndex(GetCurrentEditIndex());
+    for(int i=0; i<GetCurrentEditIndex(); i++)
+    {
+        if (GetTagTextByIndex(i)==currentEditetTagText)
+        {
+            return true;
+        }
+    }
+    for (int i=GetCurrentEditIndex()+1; i<GetTagsCount(); i++)
+    {
+        if(GetTagTextByIndex(i)==currentEditetTagText)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 QString &TagsPresenter::UpdateTextInEdittedTag(const QString &text)
 {
     return m_tags[m_currentEditIndex].text=text;

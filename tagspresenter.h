@@ -40,11 +40,13 @@ public:
 public://СЃРµС‚РµСЂС‹ РіРµС‚РµСЂС‹
     QVector<QString> GetTags() const;
     void SetTags(const QVector<QString> &newTags);
-public://РѕР±С‰РёРµ РјРµС‚РѕРґС‹ СЃ РєРѕР»Р»РµРєС†РёРµР№
+public://методы работы с коллекцией
     int GetTagsCount() const;
     void AppendNewEmptyTag();
     void RemoveTagAtIndex(int index);
-    void InsertEmptyTagAtIndex(int index);  
+    void InsertEmptyTagAtIndex(int index);
+    bool IsEditedTextHasDuplicate();
+
 public://cursor pos
     int GetCursorPosition() const;
     void SetCursorPosition(int position);

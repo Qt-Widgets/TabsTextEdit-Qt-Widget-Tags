@@ -28,13 +28,12 @@ public:
     QSize minimumSizeHint() const override;
 
     void SetTags(QVector<QString> const& newTags);
-
+    QVector<QString> GetTags();
 
 Q_SIGNALS:
     void ToTagsEdited();
 
 protected:
-    // QWidget
     void paintEvent(QPaintEvent* event) override;
     void timerEvent(QTimerEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -54,16 +53,12 @@ private:
     QVector<QTextLayout::FormatRange> EditetTextFormating() const;
     QRect GetInputWidgetRect();
     void DrawTagsOnWidget(QPainter& p, int startIndex, int lastIndex, int row);
-    TagsPresenter *m_tagsPresenter;
 
-    // QWidget interface
-protected:
-    void wheelEvent(QWheelEvent *event) override;
 private:
    QTextLayout *m_textLayout;
-
    int m_cursorBlinkTimerId;
    bool m_cursorBlinkStatus;
    QInputControl m_inputControl;
+   TagsPresenter *m_tagsPresenter;
 };
 #endif // TAGSLINEWIDGET_H
