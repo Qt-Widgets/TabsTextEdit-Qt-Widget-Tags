@@ -1,17 +1,14 @@
-#include "tagsmemento.h"
+#include "tagspresenter.h"
 #include <QtDebug>
 
-TagsPresenter::TagsPresenter(QWidget *view, QTextLayout *m_editedTextLayout)
-    : QObject(view)
-    , m_guiWidget(view)
+TagsPresenter::TagsPresenter(const QFontMetrics &viewWidgetFontMetrics, const QTextLayout *m_editedTextLayout)
+    : m_viewWidgetFontMetrics(viewWidgetFontMetrics)
     , m_textLayout(m_editedTextLayout)
+    , m_tags({Tag()})
     , m_currentEditIndex(0)
     , m_cursorPosition(0)
-    , m_cursorBlinkTimerId(0)
-    , m_cursorBlinkStatus(true)
     , m_vecticalScrollValue(0)
 {
-    m_tags.append(Tag());
 }
 
 TagsPresenter::~TagsPresenter()
@@ -96,10 +93,10 @@ void TagsPresenter::CalculateAllTagsRects()
 void TagsPresenter::CalculateTagsRects(QPoint &leftTopPoint,const QRect &widgetSizes, QVector<Tag> &Tags, int beginTagIndex, int lastTagIndex)
 {
     Q_ASSERT(beginTagIndex>=0 && beginTagIndex<=lastTagIndex);
-    const int fontMetricsHeight= m_guiWidget->fontMetrics().height();//высота шрифта
+    const int fontMetricsHeight= m_viewWidgetFontMetrics.height();//высота шрифта
     for (int i=beginTagIndex; i<lastTagIndex; ++i)
     {
-        const int textMetricsWidth = m_guiWidget->fontMetrics().horizontalAdvance(Tags.at(i).text);//ширина шрифта
+        const int textMetricsWidth = m_viewWidgetFontMetrics.horizontalAdvance(Tags.at(i).text);//ширина шрифта
         if (leftTopPoint.x()+textMetricsWidth+tag_inner_left_padding+2*tag_inner_right_padding+ tag_cross_spacing + tag_cross_width>widgetSizes.width())//смотрим можем ли поместить все наше добро с отступами, если да то
         {
             leftTopPoint.setX(0);//перенос точки в ноль на след строке
@@ -122,9 +119,9 @@ void TagsPresenter::CalculateTagsRects(QPoint &leftTopPoint,const QRect &widgetS
 
 void TagsPresenter::CalculateTagOnEdit(QPoint &leftTopPoint, const QRect &widgetSizes)
 {
-    const int fontMetricsHeight= m_guiWidget->fontMetrics().height();//высота шрифта
+    const int fontMetricsHeight= m_viewWidgetFontMetrics.height();//высота шрифта
     const int editedTagHeight=tag_inner_top_padding+ fontMetricsHeight + tag_inner_bottom_padding;
-    const int textMetricsWidth=FONT_METRICS_WIDTH(m_guiWidget->fontMetrics(), m_textLayout->text());
+    const int textMetricsWidth=FONT_METRICS_WIDTH(m_viewWidgetFontMetrics, m_textLayout->text());
     const int editedTagWidth = textMetricsWidth +tag_inner_left_padding + 2*tag_inner_right_padding+ tag_cross_spacing + tag_cross_width;
     if (leftTopPoint.x()+editedTagWidth>widgetSizes.width())
     {
@@ -227,7 +224,7 @@ const QRect TagsPresenter::GetEditedTranslatedTagRect() const
     return GetCurrentEdittedTagRect().translated( 0, -m_vecticalScrollValue);
 }
 
-const QRect TagsPresenter::GetTranslatedTagRegByIndex(int index) const
+const QRect TagsPresenter::GetTranslatedTagRectByIndex(int index) const
 {
     return GetTagRectByIndex(index).translated(0, -m_vecticalScrollValue);
 }
@@ -242,7 +239,7 @@ int TagsPresenter::GetCurrentEditIndex() const
     return m_currentEditIndex;
 }
 
-void TagsPresenter::EditNewTag()
+void TagsPresenter::AppendNewEmptyTag()
 {
     m_tags.push_back(Tag());
     setEditingIndex(m_tags.count() - 1);
@@ -277,7 +274,7 @@ void TagsPresenter::CalculateVecticalScroll(const QRect &editedTagRect)
         if (cursorYPosition - m_vecticalScrollValue >= widgetRect.height()-1)
         {
             //едитиэд текст не помещается, курсор находится снизу в текст эдите (прокрутить вниз)
-            m_vecticalScrollValue = cursorYPosition +m_guiWidget->fontMetrics().height()- widgetRect.height() + 1;
+            m_vecticalScrollValue = cursorYPosition +m_viewWidgetFontMetrics.height()- widgetRect.height() + 1;
         }
         else
         {

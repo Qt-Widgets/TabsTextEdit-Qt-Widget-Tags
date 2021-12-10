@@ -4,8 +4,9 @@
 #include <QWidget>
 #include <QApplication>
 #include <QStyleOptionFrame>
+#include <QtGui/private/qinputcontrol_p.h>
 
-#include "tagsmemento.h"
+#include "tagspresenter.h"
 
 const int vertical_margin = 3;
 const int bottommargin = 1;
@@ -60,8 +61,9 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 private:
    QTextLayout *m_textLayout;
-   QInputControl m_inputControl;
+
    int m_cursorBlinkTimerId;
    bool m_cursorBlinkStatus;
+   QInputControl m_inputControl;
 };
 #endif // TAGSLINEWIDGET_H

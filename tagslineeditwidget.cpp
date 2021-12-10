@@ -5,6 +5,7 @@ TagsLineEditWidget::TagsLineEditWidget(QWidget* parent)
     : QWidget(parent)
     , m_textLayout(new QTextLayout())
     , m_cursorBlinkTimerId(0)
+    , m_cursorBlinkStatus(false)
     , m_inputControl(QInputControl::TextEdit)
 
 {
@@ -12,7 +13,7 @@ TagsLineEditWidget::TagsLineEditWidget(QWidget* parent)
     font.setPixelSize(14);
     this->setFont(font);
 
-    m_tagsPresenter=new TagsPresenter(this, m_textLayout);
+    m_tagsPresenter=new TagsPresenter(this->fontMetrics(), m_textLayout);
     UpdateTextLayout();
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);//Растягивание виджета
     setFocusPolicy(Qt::StrongFocus);//Фокус пропадает как мышь уходит
@@ -79,7 +80,7 @@ void TagsLineEditWidget::paintEvent(QPaintEvent*)
     const QVector<QTextLayout::FormatRange>  textLayoutVector = EditetTextFormating();
     m_textLayout->draw(&painter, editedTextPoint - QPoint(0, m_tagsPresenter->GetVericalScrollValue()), textLayoutVector);
     // draw cursor
-    if (m_tagsPresenter->m_cursorBlinkStatus)
+    if (m_cursorBlinkStatus)
     {
         m_textLayout->drawCursor(&painter, editedTextPoint - QPointF( 0, m_tagsPresenter->GetVericalScrollValue()), m_tagsPresenter->GetCursorPosition());
     }
@@ -89,11 +90,9 @@ void TagsLineEditWidget::paintEvent(QPaintEvent*)
 
 void TagsLineEditWidget::timerEvent(QTimerEvent* event)
 {
-    if (event->timerId() == m_cursorBlinkTimerId)
-    {
-        m_tagsPresenter->m_cursorBlinkStatus = !m_tagsPresenter->m_cursorBlinkStatus;
-        update();
-    }
+    Q_UNUSED(event);
+    m_cursorBlinkStatus = !m_cursorBlinkStatus;
+    update();
 }
 
 void TagsLineEditWidget::mousePressEvent(QMouseEvent* event)
@@ -109,7 +108,7 @@ void TagsLineEditWidget::mousePressEvent(QMouseEvent* event)
         }
         else
         {
-            if (m_tagsPresenter->GetTranslatedTagRegByIndex(i).contains(event->pos()))
+            if (m_tagsPresenter->GetTranslatedTagRectByIndex(i).contains(event->pos()))
             {
                 if (m_tagsPresenter->GetCurrentEditIndex() == i)
                 {
@@ -131,7 +130,7 @@ void TagsLineEditWidget::mousePressEvent(QMouseEvent* event)
 
     if (!hasTagFound)
     {
-        m_tagsPresenter->EditNewTag();
+        m_tagsPresenter->AppendNewEmptyTag();
     }
     RepaintWidget();
 }
@@ -337,7 +336,7 @@ void TagsLineEditWidget::UpdateCursorBlinking()
 
 bool TagsLineEditWidget::IsCursorVisible() const
 {
-    return m_cursorBlinkTimerId;
+    return m_cursorBlinkStatus;
 }
 
 void TagsLineEditWidget::SetCursorVisible(bool visible)
@@ -352,10 +351,7 @@ void TagsLineEditWidget::SetCursorVisible(bool visible)
     if (visible)
     {
         int cursorFlashTime = QGuiApplication::styleHints()->cursorFlashTime();
-        if (cursorFlashTime >= 2)
-        {
-            m_cursorBlinkTimerId = startTimer(cursorFlashTime / 2);
-        }
+        m_cursorBlinkTimerId=startTimer(cursorFlashTime / 2);
     }
     else
     {
@@ -384,7 +380,7 @@ void TagsLineEditWidget::DrawTagsOnWidget(QPainter &p, int startIndex, int lastI
     for (int i=startIndex; i< lastIndex; ++i)
     {
         // Рисуем прямоугольник тега
-        QRect const& tagRect = m_tagsPresenter->GetTranslatedTagRegByIndex(i);
+        QRect const& tagRect = m_tagsPresenter->GetTranslatedTagRectByIndex(i);
         const QColor blueColor(0, 96, 100, 150);
         QPainterPath path;
         path.addRoundedRect(tagRect, 4, 4);
@@ -417,17 +413,17 @@ void TagsLineEditWidget::DrawTagsOnWidget(QPainter &p, int startIndex, int lastI
 void TagsLineEditWidget::wheelEvent(QWheelEvent *event)
 {
 
-//    int numDegrees = event->angleDelta().y();
-//    qDebug()<< m_tagsPresenter->m_vecticalScrollValue << " numDegrees " << numDegrees ;
-//    if(numDegrees>0)
-//    {
-//        const int allTagsHeight = m_tagsPresenter->GetAllTagsHeight();
-//        m_tagsPresenter->m_vecticalScrollValue=qMin(allTagsHeight, m_tagsPresenter->m_vecticalScrollValue+=20);
-//    }
-//    else
-//    {
-//        m_tagsPresenter->m_vecticalScrollValue=qMax(0, m_tagsPresenter->m_vecticalScrollValue-=20);
-//    }
-//    m_tagsPresenter->killTimer(m_tagsPresenter->m_cursorBlinkTimerId);
-//    RepaintWidget();
+    //    int numDegrees = event->angleDelta().y();
+    //    qDebug()<< m_tagsPresenter->m_vecticalScrollValue << " numDegrees " << numDegrees ;
+    //    if(numDegrees>0)
+    //    {
+    //        const int allTagsHeight = m_tagsPresenter->GetAllTagsHeight();
+    //        m_tagsPresenter->m_vecticalScrollValue=qMin(allTagsHeight, m_tagsPresenter->m_vecticalScrollValue+=20);
+    //    }
+    //    else
+    //    {
+    //        m_tagsPresenter->m_vecticalScrollValue=qMax(0, m_tagsPresenter->m_vecticalScrollValue-=20);
+    //    }
+    //    m_tagsPresenter->killTimer(m_tagsPresenter->m_cursorBlinkTimerId);
+    //    RepaintWidget();
 }

@@ -18,13 +18,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     main.cpp \
     tagslineeditwidget.cpp \
-    tagsmemento.cpp \
+    tagspresenter.cpp \
     widget.cpp
 
 HEADERS += \
     tag.h \
     tagslineeditwidget.h \
-    tagsmemento.h \
+    tagspresenter.h \
     widget.h
 
 # Default rules for deployment.
