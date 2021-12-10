@@ -4,9 +4,9 @@ This is a simple, animated, high-performance input widget with textarea field.
 
 Use https://github.com/nicktrandafil/tags if you need lineEdit field
 
-Auto split input text into tags by Space or Enter key.
+Auto split input text into tags by comma, Space or Enter key.
 
-Auto prevent duplicate tags.
+Auto prevent duplicate tags. If you don't need this feature remove `m_tagsPresenter->IsEditedTextHasDuplicate()` in `keyPressEvent` method
 
 How to use:
 
